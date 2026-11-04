@@ -26,6 +26,7 @@ button{cursor:pointer}button.on{background:var(--acc);color:#fff;border-color:va
 .ib{width:44px;height:44px;padding:0;border:0;background:none;border-radius:50%}
 .ib svg{width:44px;height:44px;display:block}
 .ib circle{fill:var(--acc)}.ib path,.ib rect{fill:#fff}.ib:hover{filter:brightness(1.12)}
+button:disabled{opacity:.35;cursor:default}.tb{width:40px;height:40px;padding:0;display:inline-flex;align-items:center;justify-content:center}.tb svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 </style></head><body><main>
 <div class="bar">
 <div class="tab">
@@ -35,7 +36,7 @@ button{cursor:pointer}button.on{background:var(--acc);color:#fff;border-color:va
 <button data-t="rect" title="Rectangle"><svg viewBox="0 0 44 44"><rect x="7" y="12" width="30" height="20"/><rect class="h" x="3" y="8" width="8" height="8"/><rect class="h" x="33" y="28" width="8" height="8"/></svg></button>
 <button data-t="poly" title="Polygon"><svg viewBox="0 0 44 44"><path d="M22 5l15 8.5v17L22 39 7 30.5v-17z"/><rect class="h" x="18" y="18" width="8" height="8"/></svg></button>
 </div>
-<span class="sep"></span><button id="pl" class="ib"></button><label><input type="checkbox" id="sn" checked> Snap 1</label>
+<span class="sep"></span><button id="un" class="tb" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button><button id="re" class="tb" title="Redo (Ctrl+Y)"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button><span class="sep"></span><button id="pl" class="ib"></button><label><input type="checkbox" id="sn" checked> Snap 1</label>
 <span class="sep"></span><button id="ex">Rock crusher example</button><button id="cl">Clear</button>
 <span class="sep"></span><button id="sv">Save file</button><button id="opb">Open file</button><input type="file" id="op" accept=".json,application/json" hidden>
 <span class="sep"></span><input type="number" id="rs" value="10" min="1" max="120" style="width:60px" title="Video length in seconds"> s <button id="rc" class="ib"></button>
@@ -54,13 +55,13 @@ const addK=ps=>{blks.push({p:ps});ps.forEach((a,i)=>ps.forEach((b,j)=>{if(j<=i||
 function gpts(){const S=new Set();sels.forEach(s=>{const o=s.o;if(s.t==='pt')S.add(o);else if(s.t==='bar'){S.add(o.a);S.add(o.b)}else if(s.t==='circ')S.add(o.c);else o.p.forEach(p=>S.add(p))});return[...S]}
 function boxSel(s){const x0=Math.min(s.x0,s.x1),x1=Math.max(s.x0,s.x1),y0=Math.min(s.y0,s.y1),y1=Math.max(s.y0,s.y1),I=p=>p.x>=x0&&p.x<=x1&&p.y>=y0&&p.y<=y1;
 if(x1-x0<3/Z&&y1-y0<3/Z){props();return}
-sels=[];pts.filter(I).forEach(p=>sels.push({t:'pt',o:p}));
-bars.forEach(b=>{if(!b.h&&I(b.a)&&I(b.b))sels.push({t:'bar',o:b})});
-circs.forEach(c=>{if(I(c.c))sels.push({t:'circ',o:c})});
-blks.forEach(k=>{if(k.p.every(I))sels.push({t:'blk',o:k})});
+if(!s.add)sels=[];const ad=(t,o)=>{if(!sels.some(q=>q.o===o))sels.push({t,o})};pts.filter(I).forEach(p=>ad('pt',p));
+bars.forEach(b=>{if(!b.h&&I(b.a)&&I(b.b))ad('bar',b)});
+circs.forEach(c=>{if(I(c.c))ad('circ',c)});
+blks.forEach(k=>{if(k.p.every(I))ad('blk',k)});
 sel=null;props()}
 function clean(){const u=new Set();bars.forEach(b=>{u.add(b.a);u.add(b.b)});circs.forEach(c=>u.add(c.c));blks.forEach(k=>k.p.forEach(p=>u.add(p)));pts=pts.filter(p=>u.has(p))}
-function del(){if(sels.length){const L=sels.slice();sels=[];L.forEach(s=>{sel=s;del1()});sel=null;clean();props();return}del1()}
+function del(){if(sel||sels.length)snap();if(sels.length){const L=sels.slice();sels=[];L.forEach(s=>{sel=s;del1()});sel=null;clean();props();return}del1()}
 function del1(){if(!sel)return;const o=sel.o,inK=(k,b)=>k.p.includes(b.a)&&k.p.includes(b.b);
 if(sel.t==='pt'){bars=bars.filter(b=>b.a!==o&&b.b!==o);circs=circs.filter(c=>c.c!==o);const g=blks.filter(k=>k.p.includes(o));blks=blks.filter(k=>!g.includes(k));bars=bars.filter(b=>!g.some(k=>inK(k,b)))}
 else if(sel.t==='bar')bars=bars.filter(b=>b!==o);
@@ -88,45 +89,45 @@ function solve(held){for(let k=0;k<60;k++)for(const b of bars){const A=b.a,B=b.b
 wa=(A.f||held.has(A))?0:1,wb=(B.f||held.has(B))?0:1,s=wa+wb;if(!s)continue;
 A.x+=dx*e*wa/s;A.y+=dy*e*wa/s;B.x-=dx*e*wb/s;B.y-=dy*e*wb/s}}
 cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);if(e.button===2||e.button===1){st={k:'pan',x:e.offsetX,y:e.offsetY};return}const w=W(e);ms=w;
-if(tool==='sel'){const h=hit(w);if(h&&sels.some(s=>s.o===h.o)){st={k:'drag',group:true,l:w,held:new Set()};return}
+if(tool==='sel'){const h=hit(w);if(e.ctrlKey||e.metaKey||e.shiftKey){if(sel){sels=[sel];sel=null}if(h){const i=sels.findIndex(s=>s.o===h.o);if(i>=0)sels.splice(i,1);else sels.push(h);if(sels.length===1){sel=sels[0];sels=[]}props();return}st={k:'box',add:true,x0:w.x,y0:w.y,x1:w.x,y1:w.y};return}if(h&&sels.some(s=>s.o===h.o)){st={k:'drag',group:true,l:w,held:new Set()};return}
 sels=[];if(h){sel=h;st={k:'drag',h,l:w,held:new Set()}}else{sel=null;st={k:'box',x0:w.x,y0:w.y,x1:w.x,y1:w.y}}props();return}
 if(tool==='poly'){const f=poly[0];if(poly.length>2&&f&&Math.hypot(f.x-w.x,f.y-w.y)<9/Z){endPoly();return}
 const p=near(w.x,w.y)||{x:gs(w.x),y:gs(w.y),f:false,n:1};poly.push(p);return}
 const s=near(w.x,w.y);st={k:tool,s:s,x:s?s.x:gs(w.x),y:s?s.y:gs(w.y)}};
 cv.onpointermove=e=>{const w=W(e);ms=w;$('st').textContent=`x ${w.x.toFixed(1)}  y ${w.y.toFixed(1)}`;if(!st)return;
 if(st.k==='pan'){ox+=e.offsetX-st.x;oy+=e.offsetY-st.y;st.x=e.offsetX;st.y=e.offsetY}
-else if(st.k==='box'){st.x1=w.x;st.y1=w.y}else if(st.k==='drag'){const h=st.h,dx=w.x-st.l.x,dy=w.y-st.l.y;st.l=w;st.held=new Set();
+else if(st.k==='box'){st.x1=w.x;st.y1=w.y}else if(st.k==='drag'){const h=st.h,dx=w.x-st.l.x,dy=w.y-st.l.y;if(!st.sn){snap();st.sn=1}st.l=w;st.held=new Set();
 const mv=ps=>ps.forEach(p=>{if(!p.f){p.x+=dx;p.y+=dy}st.held.add(p)});
 if(st.group)mv(gpts());else if(h.t==='pt'){h.o.x=w.x;h.o.y=w.y;st.held.add(h.o)}else if(h.t==='bar')mv([h.o.a,h.o.b]);else if(h.t==='circ')mv([h.o.c]);else mv(h.o.p)}};
 cv.onpointerup=e=>{const w=W(e);if(!st)return;const s=st;st=null;if(s.k==='box'){boxSel(s);return}
 if(s.k==='line'){const e2=near(w.x,w.y),x=e2?e2.x:gs(w.x),y=e2?e2.y:gs(w.y);if(Math.hypot(x-s.x,y-s.y)<1)return;
-const a=s.s||addP(s.x,s.y),b=e2||addP(x,y);addB(a,b);sel={t:'bar',o:bars[bars.length-1]};props()}
-else if(s.k==='circ'){const r=Math.hypot(w.x-s.x,w.y-s.y);if(r<1)return;const c=s.s||addP(s.x,s.y);circs.push({c,r:Math.round(r*10)/10});sel={t:'circ',o:circs[circs.length-1]};props()}
+snap();const a=s.s||addP(s.x,s.y),b=e2||addP(x,y);addB(a,b);sel={t:'bar',o:bars[bars.length-1]};props()}
+else if(s.k==='circ'){const r=Math.hypot(w.x-s.x,w.y-s.y);if(r<1)return;snap();const c=s.s||addP(s.x,s.y);circs.push({c,r:Math.round(r*10)/10});sel={t:'circ',o:circs[circs.length-1]};props()}
 else if(s.k==='rect'){const x=gs(w.x),y=gs(w.y);if(Math.abs(x-s.x)<1||Math.abs(y-s.y)<1)return;
-addK([addP(s.x,s.y),addP(x,s.y),addP(x,y),addP(s.x,y)]);sel={t:'blk',o:blks[blks.length-1]};props()}};
+snap();addK([addP(s.x,s.y),addP(x,s.y),addP(x,y),addP(s.x,y)]);sel={t:'blk',o:blks[blks.length-1]};props()}};
 cv.ondblclick=()=>{if(tool==='poly')endPoly()};
 cv.oncontextmenu=e=>e.preventDefault();
-function endPoly(){if(poly.length>=3){poly.forEach(p=>{if(p.n){delete p.n;pts.push(p)}});addK(poly);sel={t:'blk',o:blks[blks.length-1]}}poly=[];setTool('sel');props()}
+function endPoly(){if(poly.length>=3){snap();poly.forEach(p=>{if(p.n){delete p.n;pts.push(p)}});addK(poly);sel={t:'blk',o:blks[blks.length-1]}}poly=[];setTool('sel');props()}
 cv.onwheel=e=>{e.preventDefault();const w=W(e),f=Math.pow(1.1,-Math.sign(e.deltaY));Z=Math.max(1,Math.min(40,Z*f));ox=e.offsetX-w.x*Z;oy=e.offsetY+w.y*Z};
 function setTool(t){tool=t;poly=[];document.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===t))}
 document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>setTool(b.dataset.t));
-addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if(e.key==='Delete'||e.key==='Backspace')del();if(e.key==='Escape'){poly=[];sels=[];sel=null;props();setTool('sel')}if(e.key==='Enter'&&tool==='poly')endPoly()});
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;if((e.ctrlKey||e.metaKey)&&!e.altKey){const k=e.key.toLowerCase();if(k==='z'){e.preventDefault();e.shiftKey?redo():undo();return}if(k==='y'){e.preventDefault();redo();return}}if(e.key==='Delete'||e.key==='Backspace')del();if(e.key==='Escape'){poly=[];sels=[];sel=null;props();setTool('sel')}if(e.key==='Enter'&&tool==='poly')endPoly()});
 const IC={play:'<svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="21"/><path d="M17 12l16 10-16 10z"/></svg>',pause:'<svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="21"/><rect x="14" y="12" width="6" height="20" rx="1.5"/><rect x="24" y="12" width="6" height="20" rx="1.5"/></svg>',stop:'<svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="21"/><rect x="14" y="14" width="16" height="16" rx="2.5"/></svg>',rec:'<svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="21"/><circle cx="22" cy="22" r="8" style="fill:#e5484d"/></svg>'};
 function clr(){pts.forEach(p=>{if(p.trail)p.trail=[]})}
 function pIcon(){$('pl').innerHTML=play?IC.pause:IC.play;$('pl').title=play?'Pause':'Play'}
 function rIcon(){$('rc').innerHTML=rec?IC.stop:IC.rec;$('rc').title=rec?'Stop and save':'Record video'}
 $('pl').onclick=()=>{play=!play;pIcon()};pIcon();
-$('ex').onclick=example;$('cl').onclick=()=>{pts=[];bars=[];circs=[];blks=[];sel=null;sels=[];props()};
+$('ex').onclick=()=>{snap();example()};$('cl').onclick=()=>{snap();pts=[];bars=[];circs=[];blks=[];sel=null;sels=[];props()};
 $('bgf').onchange=e=>{const f=e.target.files[0];if(!f)return;const i=new Image();i.onload=()=>bg=i;i.src=URL.createObjectURL(f)};
 function props(){const P=$('pp'),s=sel,n=(l,id,v)=>`<label>${l}<input type="number" step="any" id="${id}" value="${(+v).toFixed(2)}"></label>`,ck=(l,id,v)=>`<label>${l}<input type="checkbox" id="${id}"${v?' checked':''}></label>`,del='<button onclick="del()" style="margin-top:6px">Delete</button>';
 if(sels.length){const np=gpts();P.innerHTML=`<h3>${sels.length} selected</h3><p>${np.length} points. Drag any selected part to move them together, or press Delete.</p>${ck('Fix all points','mf',np.every(p=>p.f))}${del}`;return}
-if(!s){P.innerHTML='<h3>Properties</h3><p>Pick a tool, drag on the canvas to draw, then click a shape here to edit it.</p><p>Tips: start a line on an existing point to join them. Drag across empty space to select several parts. Hold the right or middle mouse button and drag to pan. Scroll to zoom.</p>';return}
+if(!s){P.innerHTML='<h3>Properties</h3><p>Pick a tool, drag on the canvas to draw, then click a shape here to edit it.</p><p>Tips: start a line on an existing point to join them. Drag across empty space to select several parts, or hold Ctrl and click parts to add or remove them. Hold the right or middle mouse button and drag to pan. Scroll to zoom.</p>';return}
 const o=s.o;
 if(s.t==='pt')P.innerHTML=`<h3>Point</h3>${n('x','px',o.x)}${n('y','py',o.y)}${ck('Fixed','pf',o.f)}${ck('Trace path','ptr',o.tr)}<button onclick="clr()">Clear trace</button>${del}`;
 else if(s.t==='bar')P.innerHTML=`<h3>Line</h3>${n('Length','bl',o.L)}<p id="live"></p>${ck('Motor','bm',o.mo)}${n('Speed °/s','bw',o.w)}<p id="hint">Motor: fix one end point, then tick Motor.</p>${del}`;
 else if(s.t==='circ')P.innerHTML=`<h3>Circle</h3>${n('Radius','br',o.r)}<p>Centre is a point. Select it to move or fix it.</p>${del}`;
 else P.innerHTML=`<h3>Block</h3><p>${o.p.length} corners, rigid.</p>${ck('Fix all corners','kf',o.p.every(p=>p.f))}${del}`}
-$('pp').addEventListener('input',e=>{const t=e.target,o=sel&&sel.o;if(t.id==='mf'){gpts().forEach(p=>p.f=t.checked);return}if(!o)return;const v=t.type==='checkbox'?t.checked:parseFloat(t.value);
+$('pp').addEventListener('input',e=>{const t=e.target,o=sel&&sel.o;if(!pd0){snap();pd0=1}if(t.id==='mf'){gpts().forEach(p=>p.f=t.checked);return}if(!o)return;const v=t.type==='checkbox'?t.checked:parseFloat(t.value);
 if(t.id==='px'&&!isNaN(v))o.x=v;if(t.id==='py'&&!isNaN(v))o.y=v;if(t.id==='pf')o.f=v;if(t.id==='ptr'){o.tr=v;o.trail=[]}
 if(t.id==='bl'&&v>0)o.L=v;if(t.id==='br'&&v>0)o.r=v;if(t.id==='bw')o.w=v||0;if(t.id==='kf')o.p.forEach(p=>p.f=v);
 if(t.id==='bm'){if(v){const pv=o.a.f?o.a:o.b.f?o.b:null;if(!pv){t.checked=false;$('hint').textContent='Fix one end of the line first (select that end point and tick Fixed).';$('hint').className='bad';return}
@@ -160,14 +161,20 @@ else cx.arc(X(st.x),Y(st.y),Math.hypot(m.x-st.x,m.y-st.y)*Z,0,7);cx.stroke()}
 if(st&&st.k==='box'){cx.fillStyle=c('--acc');cx.globalAlpha=.12;cx.fillRect(X(st.x0),Y(st.y0),(st.x1-st.x0)*Z,(st.y0-st.y1)*Z);cx.globalAlpha=1;cx.strokeRect(X(st.x0),Y(st.y0),(st.x1-st.x0)*Z,(st.y0-st.y1)*Z)}
 if(poly.length){cx.beginPath();poly.forEach((p,i)=>i?cx.lineTo(X(p.x),Y(p.y)):cx.moveTo(X(p.x),Y(p.y)));cx.lineTo(X(gs(ms.x)),Y(gs(ms.y)));cx.stroke()}
 cx.setLineDash([])}
-let DL=null,rec=false,mr=null,chunks=[],rt=null;
+let DL=null,rec=false,mr=null,chunks=[],rt=null,pd0=0;
+const UH=[],RH=[];
+function ub(){$('un').disabled=!UH.length;$('re').disabled=!RH.length}
+function snap(){UH.push(ser());if(UH.length>100)UH.shift();RH.length=0;ub()}
+function undo(){if(!UH.length)return;RH.push(ser());des(UH.pop());ub()}
+function redo(){if(!RH.length)return;UH.push(ser());des(RH.pop());ub()}
+$('un').onclick=undo;$('re').onclick=redo;$('pp').addEventListener('change',()=>{pd0=0});ub();
 if(window.claude&&claude.use)claude.use('downloads').then(d=>DL=d).catch(()=>{});
 function ser(){const I=p=>pts.indexOf(p);return JSON.stringify({v:1,pts:pts.map(p=>({x:p.x,y:p.y,f:p.f,tr:!!p.tr})),bars:bars.map(b=>({a:I(b.a),b:I(b.b),L:b.L,h:b.h,mo:b.mo,w:b.w,pv:b.pv?I(b.pv):-1})),circs:circs.map(c=>({c:I(c.c),r:c.r})),blks:blks.map(k=>({p:k.p.map(I)}))},null,1)}
 function des(s){const d=JSON.parse(s),P=d.pts.map(p=>({x:+p.x,y:+p.y,f:!!p.f,tr:!!p.tr})),B=d.bars.map(b=>{const o={a:P[b.a],b:P[b.b],L:+b.L,h:!!b.h,mo:!!b.mo,w:+b.w||0};if(!o.a||!o.b)throw 0;if(o.mo&&b.pv>=0){o.pv=P[b.pv];o.tp=o.pv===o.a?o.b:o.a;o.ang=Math.atan2(o.tp.y-o.pv.y,o.tp.x-o.pv.x)}return o}),C=d.circs.map(c=>({c:P[c.c],r:+c.r})),K=d.blks.map(k=>({p:k.p.map(i=>P[i])}));if(C.some(c=>!c.c)||K.some(k=>k.p.some(p=>!p)))throw 0;pts=P;bars=B;circs=C;blks=K;sel=null;sels=[];props()}
 async function save(name,data){if(!DL){try{const b=data instanceof Blob?data:new Blob([data],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);$('st').textContent='Saved '+name}catch(_){$('st').textContent='Could not save.'}return}try{await DL.save({filename:name,data});$('st').textContent='Saved '+name}catch(e){$('st').textContent=e&&e.code==='declined'?'Save cancelled.':'Could not save ('+(e&&e.code||'error')+').'}}
 rIcon();$('sv').onclick=()=>save('linkage.json',ser());
 $('opb').onclick=()=>$('op').click();
-$('op').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{des(r.result);$('st').textContent='Opened '+f.name}catch(_){$('st').textContent='That file is not a linkage file.'}};r.readAsText(f);e.target.value=''};
+$('op').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const cur=ser();des(r.result);UH.push(cur);RH.length=0;ub();$('st').textContent='Opened '+f.name}catch(_){$('st').textContent='That file is not a linkage file.'}};r.readAsText(f);e.target.value=''};
 function recStop(){if(mr&&mr.state==='recording')mr.stop()}
 $('rc').onclick=()=>{if(rec){recStop();return}
 const mt=window.MediaRecorder&&cv.captureStream?['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(t=>MediaRecorder.isTypeSupported(t)):null;
