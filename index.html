@@ -47,9 +47,22 @@ button:disabled{opacity:.35;cursor:default}.tb{width:40px;height:40px;padding:0;
 </main>
 <script>
 const $=id=>document.getElementById(id),cv=$('cv'),cx=cv.getContext('2d');
-let pts=[],bars=[],circs=[],blks=[],sel=null,sels=[],tool='sel',Z=5,ox=300,oy=70,play=true,st=null,poly=[],ms={x:0,y:0},bg=null,last=0;
+let pts=[],bars=[],circs=[],blks=[],sel=null,sels=[],angs=[],tool='sel',Z=5,ox=300,oy=70,play=true,st=null,poly=[],ms={x:0,y:0},bg=null,last=0;
 const dd=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const addP=(x,y,f)=>{const p={x,y,f:!!f,nm:nxt(pts)};pts.push(p);return p};
+const D2=180/Math.PI;
+function angH(b){let a=Math.atan2(b.b.y-b.a.y,b.b.x-b.a.x)*D2;if(a>90)a-=180;if(a<=-90)a+=180;return a}
+function shr(b1,b2){return [b1.a,b1.b].find(p=>p===b2.a||p===b2.b)}
+function angB(b1,b2){const s=shr(b1,b2);let u,v;
+if(s){const o1=b1.a===s?b1.b:b1.a,o2=b2.a===s?b2.b:b2.a;u=[o1.x-s.x,o1.y-s.y];v=[o2.x-s.x,o2.y-s.y]}
+else{u=[b1.b.x-b1.a.x,b1.b.y-b1.a.y];v=[b2.b.x-b2.a.x,b2.b.y-b2.a.y]}
+let a=Math.acos(Math.max(-1,Math.min(1,(u[0]*v[0]+u[1]*v[1])/(Math.hypot(...u)*Math.hypot(...v)||1))))*D2;
+if(!s&&a>90)a=180-a;return a}
+function vtx(b){const dg=p=>bars.filter(x=>x.a===p||x.b===p).length;return dg(b.b)>dg(b.a)?b.b:b.a}
+function pinA(one){let m=null;
+if(one&&sel&&sel.t==='bar')m={a:sel.o,b:null};
+else if(!one&&sels.length===2&&sels.every(s=>s.t==='bar')){if(!shr(sels[0].o,sels[1].o)){$('st').textContent='Pick two lines that share a point to pin an angle.';return}m={a:sels[0].o,b:sels[1].o}}
+if(m){snap();angs.push(m)}}
 function nxt(arr){const u=new Set(arr.map(p=>p.nm));for(const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')if(!u.has(c))return c;let i=1;while(u.has('P'+i))i++;return 'P'+i}
 const addB=(a,b,h)=>{const o={a,b,L:dd(a,b),h:!!h,mo:false,w:40,nm:''};bars.push(o);return o};
 const addK=ps=>{blks.push({p:ps});ps.forEach((a,i)=>ps.forEach((b,j)=>{if(j<=i||bars.some(o=>(o.a===a&&o.b===b)||(o.a===b&&o.b===a)))return;addB(a,b,!(j===i+1||(i===0&&j===ps.length-1)))}))};
@@ -61,7 +74,7 @@ bars.forEach(b=>{if(!b.h&&I(b.a)&&I(b.b))ad('bar',b)});
 circs.forEach(c=>{if(I(c.c))ad('circ',c)});
 blks.forEach(k=>{if(k.p.every(I))ad('blk',k)});
 sel=null;props()}
-function clean(){const u=new Set();bars.forEach(b=>{u.add(b.a);u.add(b.b)});circs.forEach(c=>u.add(c.c));blks.forEach(k=>k.p.forEach(p=>u.add(p)));pts=pts.filter(p=>u.has(p))}
+function clean(){angs=angs.filter(m=>bars.includes(m.a)&&(!m.b||bars.includes(m.b)));const u=new Set();bars.forEach(b=>{u.add(b.a);u.add(b.b)});circs.forEach(c=>u.add(c.c));blks.forEach(k=>k.p.forEach(p=>u.add(p)));pts=pts.filter(p=>u.has(p))}
 function del(){if(sel||sels.length)snap();if(sels.length){const L=sels.slice();sels=[];L.forEach(s=>{sel=s;del1()});sel=null;clean();props();return}del1()}
 function del1(){if(!sel)return;const o=sel.o,inK=(k,b)=>k.p.includes(b.a)&&k.p.includes(b.b);
 if(sel.t==='pt'){bars=bars.filter(b=>b.a!==o&&b.b!==o);circs=circs.filter(c=>c.c!==o);const g=blks.filter(k=>k.p.includes(o));blks=blks.filter(k=>!g.includes(k));bars=bars.filter(b=>!g.some(k=>inK(k,b)))}
@@ -122,11 +135,11 @@ $('pl').onclick=()=>{play=!play;pIcon()};pIcon();
 $('ex').onclick=()=>{snap();example()};$('cl').onclick=()=>{snap();pts=[];bars=[];circs=[];blks=[];sel=null;sels=[];props()};
 $('bgf').onchange=e=>{const f=e.target.files[0];if(!f)return;const i=new Image();i.onload=()=>bg=i;i.src=URL.createObjectURL(f)};
 function props(){const P=$('pp'),s=sel,n=(l,id,v)=>`<label>${l}<input type="number" step="any" id="${id}" value="${(+v).toFixed(2)}"></label>`,ck=(l,id,v)=>`<label>${l}<input type="checkbox" id="${id}"${v?' checked':''}></label>`,del='<button onclick="del()" style="margin-top:6px">Delete</button>';
-if(sels.length){const np=gpts();P.innerHTML=`<h3>${sels.length} selected</h3><p>${np.length} points. Drag any selected part to move them together, or press Delete.</p>${ck('Fix all points','mf',np.every(p=>p.f))}${del}`;return}
-if(!s){P.innerHTML='<h3>Properties</h3><p>Pick a tool, drag on the canvas to draw, then click a shape here to edit it.</p><p>Tips: start a line on an existing point to join them. Drag across empty space to select several parts, or hold Ctrl and click parts to add or remove them. Hold the right or middle mouse button and drag to pan. Scroll to zoom.</p>';return}
+if(sels.length){const np=gpts();P.innerHTML=`<h3>${sels.length} selected</h3><p>${np.length} points. Drag any selected part to move them together, or press Delete.</p>${sels.length===2&&sels.every(s=>s.t==='bar')?'<p id="a2"></p><button onclick="pinA(0)">Pin angle on canvas</button> ':''}${ck('Fix all points','mf',np.every(p=>p.f))}${del}`;return}
+if(!s){P.innerHTML='<h3>Properties</h3><p>Pick a tool, drag on the canvas to draw, then click a shape here to edit it.</p><p>Tips: start a line on an existing point to join them. Angles: select one line and pin its angle to horizontal, or Ctrl-click two lines that share a point and pin the angle between them. <button onclick="snap();angs=[]">Clear angle markers</button> Drag across empty space to select several parts, or hold Ctrl and click parts to add or remove them. Hold the right or middle mouse button and drag to pan. Scroll to zoom.</p>';return}
 const o=s.o;
 if(s.t==='pt')P.innerHTML=`<h3>Point</h3><label>Name<input type="text" id="pn" value="${o.nm||''}" style="width:90px"></label>${n('x','px',o.x)}${n('y','py',o.y)}${ck('Fixed','pf',o.f)}${ck('Trace path','ptr',o.tr)}<button onclick="clr()">Clear trace</button>${del}`;
-else if(s.t==='bar')P.innerHTML=`<h3>Line</h3><label>Name<input type="text" id="bn" value="${o.nm||''}" style="width:90px"></label>${n('Length','bl',o.L)}<p id="live"></p>${ck('Motor','bm',o.mo)}${n('Speed °/s','bw',o.w)}<p id="hint">Motor: fix one end point, then tick Motor.</p>${del}`;
+else if(s.t==='bar')P.innerHTML=`<h3>Line</h3><label>Name<input type="text" id="bn" value="${o.nm||''}" style="width:90px"></label>${n('Length','bl',o.L)}<p id="live"></p><button onclick="pinA(1)">Pin angle to horizontal</button>${ck('Motor','bm',o.mo)}${n('Speed °/s','bw',o.w)}<p id="hint">Motor: fix one end point, then tick Motor.</p>${del}`;
 else if(s.t==='circ')P.innerHTML=`<h3>Circle</h3>${n('Radius','br',o.r)}<p>Centre is a point. Select it to move or fix it.</p>${del}`;
 else P.innerHTML=`<h3>Block</h3><p>${o.p.length} corners, rigid.</p>${ck('Fix all corners','kf',o.p.every(p=>p.f))}${del}`}
 $('pp').addEventListener('input',e=>{const t=e.target,o=sel&&sel.o;if(!pd0){snap();pd0=1}if(t.id==='mf'){gpts().forEach(p=>p.f=t.checked);return}if(!o)return;const v=t.type==='checkbox'?t.checked:parseFloat(t.value);
@@ -138,7 +151,7 @@ function frame(t){const dt=Math.min((t-last)/1000,.05);last=t;const held=new Set
 if(play)for(const b of bars)if(b.mo&&b.pv&&b.pv.f){b.ang+=b.w*Math.PI/180*dt;b.tp.x=b.pv.x+b.L*Math.cos(b.ang);b.tp.y=b.pv.y+b.L*Math.sin(b.ang)}
 for(const b of bars)if(b.mo&&b.pv&&b.pv.f)held.add(b.tp);
 solve(held);for(const p of pts)if(p.tr){const T=p.trail||(p.trail=[]),l=T[T.length-1];if(!l||Math.hypot(p.x-l[0],p.y-l[1])>.05){T.push([p.x,p.y]);if(T.length>4000)T.shift()}}draw();
-if(sel){const o=sel.o,L=$('live');if(L&&sel.t==='bar'){const d=dd(o.a,o.b);L.textContent=`Actual ${d.toFixed(2)}, angle from vertical ${(Math.atan2(o.b.x-o.a.x,o.b.y-o.a.y)*180/Math.PI).toFixed(1)}°`}
+const a2=$('a2');if(a2&&sels.length===2)a2.textContent='Angle between lines: '+angB(sels[0].o,sels[1].o).toFixed(1)+'°';if(sel){const o=sel.o,L=$('live');if(L&&sel.t==='bar'){const d=dd(o.a,o.b);L.textContent=`Actual ${d.toFixed(2)}, angle from vertical ${(Math.atan2(o.b.x-o.a.x,o.b.y-o.a.y)*180/Math.PI).toFixed(1)}°; from horizontal ${angH(o).toFixed(1)}°`}
 if(sel.t==='pt')[['px','x'],['py','y']].forEach(([i,k])=>{const el=$(i);if(el&&document.activeElement!==el)el.value=o[k].toFixed(2)})}
 requestAnimationFrame(frame)}
 function draw(){const w=cv.clientWidth,h=cv.clientHeight,dp=devicePixelRatio||1;if(cv.width!==w*dp||cv.height!==h*dp){cv.width=w*dp;cv.height=h*dp}
@@ -155,6 +168,15 @@ pts.forEach(p=>{if(p.tr&&p.trail&&p.trail.length>1){cx.strokeStyle=c('--acc');cx
 cx.lineCap='round';bars.forEach(b=>{if(b.h)return;cx.strokeStyle=hs(b)?c('--acc'):b.mo?c('--bad'):c('--bar');cx.lineWidth=hs(b)?5:4;cx.beginPath();cx.moveTo(X(b.a.x),Y(b.a.y));cx.lineTo(X(b.b.x),Y(b.b.y));cx.stroke()});
 pts.forEach(p=>{cx.beginPath();if(p.f){cx.moveTo(X(p.x),Y(p.y));cx.lineTo(X(p.x)-7,Y(p.y)+13);cx.lineTo(X(p.x)+7,Y(p.y)+13);cx.closePath();cx.fillStyle=c('--mut');cx.fill()}
 cx.beginPath();cx.arc(X(p.x),Y(p.y),hs(p)?6:4,0,7);cx.fillStyle=c('--card');cx.fill();cx.strokeStyle=hs(p)?c('--acc'):c('--fg');cx.lineWidth=2;cx.stroke()});
+angs.forEach(m=>{let V,w1,w2;
+if(m.b){V=shr(m.a,m.b);if(!V)return;const o1=m.a.a===V?m.a.b:m.a.a,o2=m.b.a===V?m.b.b:m.b.a;w1=Math.atan2(o1.y-V.y,o1.x-V.x);w2=Math.atan2(o2.y-V.y,o2.x-V.x)}
+else{V=vtx(m.a);const o=m.a.a===V?m.a.b:m.a.a;w2=Math.atan2(o.y-V.y,o.x-V.x);w1=Math.cos(w2)>=0?0:Math.PI}
+let d=w2-w1;while(d>Math.PI)d-=2*Math.PI;while(d<=-Math.PI)d+=2*Math.PI;
+const vx=X(V.x),vy=Y(V.y),R=30,wm=w1+d/2,tt=(Math.abs(d)*D2).toFixed(1)+'°',tx=vx+Math.cos(wm)*(R+18),ty=vy-Math.sin(wm)*(R+18)+4;
+cx.strokeStyle=c('--acc');cx.lineWidth=2;cx.setLineDash([]);
+if(!m.b){cx.beginPath();cx.moveTo(vx,vy);cx.lineTo(vx+Math.cos(w1)*55,vy);cx.stroke()}
+cx.beginPath();cx.arc(vx,vy,R,-w1,-w2,d>0);cx.stroke();
+cx.font='13px system-ui,sans-serif';cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=3;cx.strokeStyle=c('--card');cx.strokeText(tt,tx,ty);cx.fillStyle=c('--acc');cx.fillText(tt,tx,ty);cx.textAlign='left'});
 const sN=$('sN').checked,sL=$('sL').checked;
 if(sN||sL){cx.font='13px system-ui,sans-serif';cx.lineJoin='round';cx.lineWidth=3;cx.textAlign='left';
 if(sN)pts.forEach(p=>{if(p.nm){cx.strokeStyle=c('--card');cx.strokeText(p.nm,X(p.x)+8,Y(p.y)-8);cx.fillStyle=c('--fg');cx.fillText(p.nm,X(p.x)+8,Y(p.y)-8)}});
@@ -177,8 +199,8 @@ function undo(){if(!UH.length)return;RH.push(ser());des(UH.pop());ub()}
 function redo(){if(!RH.length)return;UH.push(ser());des(RH.pop());ub()}
 $('un').onclick=undo;$('re').onclick=redo;$('pp').addEventListener('change',()=>{pd0=0});ub();
 if(window.claude&&claude.use)claude.use('downloads').then(d=>DL=d).catch(()=>{});
-function ser(){const I=p=>pts.indexOf(p);return JSON.stringify({v:1,pts:pts.map(p=>({x:p.x,y:p.y,f:p.f,tr:!!p.tr,nm:p.nm||''})),bars:bars.map(b=>({a:I(b.a),b:I(b.b),L:b.L,h:b.h,mo:b.mo,w:b.w,nm:b.nm||'',pv:b.pv?I(b.pv):-1})),circs:circs.map(c=>({c:I(c.c),r:c.r})),blks:blks.map(k=>({p:k.p.map(I)}))},null,1)}
-function des(s){const d=JSON.parse(s),P=d.pts.map(p=>({x:+p.x,y:+p.y,f:!!p.f,tr:!!p.tr,nm:p.nm||''})),B=d.bars.map(b=>{const o={a:P[b.a],b:P[b.b],L:+b.L,h:!!b.h,mo:!!b.mo,w:+b.w||0,nm:b.nm||''};if(!o.a||!o.b)throw 0;if(o.mo&&b.pv>=0){o.pv=P[b.pv];o.tp=o.pv===o.a?o.b:o.a;o.ang=Math.atan2(o.tp.y-o.pv.y,o.tp.x-o.pv.x)}return o}),C=d.circs.map(c=>({c:P[c.c],r:+c.r})),K=d.blks.map(k=>({p:k.p.map(i=>P[i])}));if(C.some(c=>!c.c)||K.some(k=>k.p.some(p=>!p)))throw 0;P.forEach(p=>{if(!p.nm)p.nm=nxt(P)});pts=P;bars=B;circs=C;blks=K;sel=null;sels=[];props()}
+function ser(){const I=p=>pts.indexOf(p);return JSON.stringify({v:1,pts:pts.map(p=>({x:p.x,y:p.y,f:p.f,tr:!!p.tr,nm:p.nm||''})),bars:bars.map(b=>({a:I(b.a),b:I(b.b),L:b.L,h:b.h,mo:b.mo,w:b.w,nm:b.nm||'',pv:b.pv?I(b.pv):-1})),circs:circs.map(c=>({c:I(c.c),r:c.r})),blks:blks.map(k=>({p:k.p.map(I)})),angs:angs.map(m=>({a:bars.indexOf(m.a),b:m.b?bars.indexOf(m.b):-1}))},null,1)}
+function des(s){const d=JSON.parse(s),P=d.pts.map(p=>({x:+p.x,y:+p.y,f:!!p.f,tr:!!p.tr,nm:p.nm||''})),B=d.bars.map(b=>{const o={a:P[b.a],b:P[b.b],L:+b.L,h:!!b.h,mo:!!b.mo,w:+b.w||0,nm:b.nm||''};if(!o.a||!o.b)throw 0;if(o.mo&&b.pv>=0){o.pv=P[b.pv];o.tp=o.pv===o.a?o.b:o.a;o.ang=Math.atan2(o.tp.y-o.pv.y,o.tp.x-o.pv.x)}return o}),C=d.circs.map(c=>({c:P[c.c],r:+c.r})),K=d.blks.map(k=>({p:k.p.map(i=>P[i])}));if(C.some(c=>!c.c)||K.some(k=>k.p.some(p=>!p)))throw 0;P.forEach(p=>{if(!p.nm)p.nm=nxt(P)});pts=P;bars=B;circs=C;blks=K;angs=(d.angs||[]).filter(m=>B[m.a]).map(m=>({a:B[m.a],b:m.b>=0?B[m.b]:null}));sel=null;sels=[];props()}
 async function save(name,data){if(!DL){try{const b=data instanceof Blob?data:new Blob([data],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);$('st').textContent='Saved '+name}catch(_){$('st').textContent='Could not save.'}return}try{await DL.save({filename:name,data});$('st').textContent='Saved '+name}catch(e){$('st').textContent=e&&e.code==='declined'?'Save cancelled.':'Could not save ('+(e&&e.code||'error')+').'}}
 rIcon();$('sv').onclick=()=>save('linkage.json',ser());
 $('opb').onclick=()=>$('op').click();
