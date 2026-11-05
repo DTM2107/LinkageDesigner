@@ -59,10 +59,10 @@ else{u=[b1.b.x-b1.a.x,b1.b.y-b1.a.y];v=[b2.b.x-b2.a.x,b2.b.y-b2.a.y]}
 let a=Math.acos(Math.max(-1,Math.min(1,(u[0]*v[0]+u[1]*v[1])/(Math.hypot(...u)*Math.hypot(...v)||1))))*D2;
 if(!s&&a>90)a=180-a;return a}
 function vtx(b){const dg=p=>bars.filter(x=>x.a===p||x.b===p).length;return dg(b.b)>dg(b.a)?b.b:b.a}
-function pinA(one){let m=null;
-if(one&&sel&&sel.t==='bar')m={a:sel.o,b:null};
+function pinA(one,end){let m=null;
+if(one&&sel&&sel.t==='bar')m={a:sel.o,b:null,v:end?sel.o.b:sel.o.a};
 else if(!one&&sels.length===2&&sels.every(s=>s.t==='bar')){if(!shr(sels[0].o,sels[1].o)){$('st').textContent='Pick two lines that share a point to pin an angle.';return}m={a:sels[0].o,b:sels[1].o}}
-if(m){snap();angs.push(m)}}
+if(m&&!angs.some(x=>x.a===m.a&&x.b===m.b&&x.v===m.v)){snap();angs.push(m)}}
 function nxt(arr){const u=new Set(arr.map(p=>p.nm));for(const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')if(!u.has(c))return c;let i=1;while(u.has('P'+i))i++;return 'P'+i}
 const addB=(a,b,h)=>{const o={a,b,L:dd(a,b),h:!!h,mo:false,w:40,nm:''};bars.push(o);return o};
 const addK=ps=>{blks.push({p:ps});ps.forEach((a,i)=>ps.forEach((b,j)=>{if(j<=i||bars.some(o=>(o.a===a&&o.b===b)||(o.a===b&&o.b===a)))return;addB(a,b,!(j===i+1||(i===0&&j===ps.length-1)))}))};
@@ -139,7 +139,7 @@ if(sels.length){const np=gpts();P.innerHTML=`<h3>${sels.length} selected</h3><p>
 if(!s){P.innerHTML='<h3>Properties</h3><p>Pick a tool, drag on the canvas to draw, then click a shape here to edit it.</p><p>Tips: start a line on an existing point to join them. Angles: select one line and pin its angle to horizontal, or Ctrl-click two lines that share a point and pin the angle between them. <button onclick="snap();angs=[]">Clear angle markers</button> Drag across empty space to select several parts, or hold Ctrl and click parts to add or remove them. Hold the right or middle mouse button and drag to pan. Scroll to zoom.</p>';return}
 const o=s.o;
 if(s.t==='pt')P.innerHTML=`<h3>Point</h3><label>Name<input type="text" id="pn" value="${o.nm||''}" style="width:90px"></label>${n('x','px',o.x)}${n('y','py',o.y)}${ck('Fixed','pf',o.f)}${ck('Trace path','ptr',o.tr)}<button onclick="clr()">Clear trace</button>${del}`;
-else if(s.t==='bar')P.innerHTML=`<h3>Line</h3><label>Name<input type="text" id="bn" value="${o.nm||''}" style="width:90px"></label>${n('Length','bl',o.L)}<p id="live"></p><button onclick="pinA(1)">Pin angle to horizontal</button>${ck('Motor','bm',o.mo)}${n('Speed °/s','bw',o.w)}<p id="hint">Motor: fix one end point, then tick Motor.</p>${del}`;
+else if(s.t==='bar')P.innerHTML=`<h3>Line</h3><label>Name<input type="text" id="bn" value="${o.nm||''}" style="width:90px"></label>${n('Length','bl',o.L)}<p id="live"></p><p style="margin-bottom:2px">Pin angle to horizontal at:</p><button onclick="pinA(1,0)">${o.a.nm||'start'}</button> <button onclick="pinA(1,1)">${o.b.nm||'end'}</button>${ck('Motor','bm',o.mo)}${n('Speed °/s','bw',o.w)}<p id="hint">Motor: fix one end point, then tick Motor.</p>${del}`;
 else if(s.t==='circ')P.innerHTML=`<h3>Circle</h3>${n('Radius','br',o.r)}<p>Centre is a point. Select it to move or fix it.</p>${del}`;
 else P.innerHTML=`<h3>Block</h3><p>${o.p.length} corners, rigid.</p>${ck('Fix all corners','kf',o.p.every(p=>p.f))}${del}`}
 $('pp').addEventListener('input',e=>{const t=e.target,o=sel&&sel.o;if(!pd0){snap();pd0=1}if(t.id==='mf'){gpts().forEach(p=>p.f=t.checked);return}if(!o)return;const v=t.type==='checkbox'?t.checked:parseFloat(t.value);
@@ -170,7 +170,7 @@ pts.forEach(p=>{cx.beginPath();if(p.f){cx.moveTo(X(p.x),Y(p.y));cx.lineTo(X(p.x)
 cx.beginPath();cx.arc(X(p.x),Y(p.y),hs(p)?6:4,0,7);cx.fillStyle=c('--card');cx.fill();cx.strokeStyle=hs(p)?c('--acc'):c('--fg');cx.lineWidth=2;cx.stroke()});
 angs.forEach(m=>{let V,w1,w2;
 if(m.b){V=shr(m.a,m.b);if(!V)return;const o1=m.a.a===V?m.a.b:m.a.a,o2=m.b.a===V?m.b.b:m.b.a;w1=Math.atan2(o1.y-V.y,o1.x-V.x);w2=Math.atan2(o2.y-V.y,o2.x-V.x)}
-else{V=vtx(m.a);const o=m.a.a===V?m.a.b:m.a.a;w2=Math.atan2(o.y-V.y,o.x-V.x);w1=Math.cos(w2)>=0?0:Math.PI}
+else{V=m.v||vtx(m.a);const o=m.a.a===V?m.a.b:m.a.a;w2=Math.atan2(o.y-V.y,o.x-V.x);w1=Math.cos(w2)>=0?0:Math.PI}
 let d=w2-w1;while(d>Math.PI)d-=2*Math.PI;while(d<=-Math.PI)d+=2*Math.PI;
 const vx=X(V.x),vy=Y(V.y),R=30,wm=w1+d/2,tt=(Math.abs(d)*D2).toFixed(1)+'°',tx=vx+Math.cos(wm)*(R+18),ty=vy-Math.sin(wm)*(R+18)+4;
 cx.strokeStyle=c('--acc');cx.lineWidth=2;cx.setLineDash([]);
@@ -199,8 +199,8 @@ function undo(){if(!UH.length)return;RH.push(ser());des(UH.pop());ub()}
 function redo(){if(!RH.length)return;UH.push(ser());des(RH.pop());ub()}
 $('un').onclick=undo;$('re').onclick=redo;$('pp').addEventListener('change',()=>{pd0=0});ub();
 if(window.claude&&claude.use)claude.use('downloads').then(d=>DL=d).catch(()=>{});
-function ser(){const I=p=>pts.indexOf(p);return JSON.stringify({v:1,pts:pts.map(p=>({x:p.x,y:p.y,f:p.f,tr:!!p.tr,nm:p.nm||''})),bars:bars.map(b=>({a:I(b.a),b:I(b.b),L:b.L,h:b.h,mo:b.mo,w:b.w,nm:b.nm||'',pv:b.pv?I(b.pv):-1})),circs:circs.map(c=>({c:I(c.c),r:c.r})),blks:blks.map(k=>({p:k.p.map(I)})),angs:angs.map(m=>({a:bars.indexOf(m.a),b:m.b?bars.indexOf(m.b):-1}))},null,1)}
-function des(s){const d=JSON.parse(s),P=d.pts.map(p=>({x:+p.x,y:+p.y,f:!!p.f,tr:!!p.tr,nm:p.nm||''})),B=d.bars.map(b=>{const o={a:P[b.a],b:P[b.b],L:+b.L,h:!!b.h,mo:!!b.mo,w:+b.w||0,nm:b.nm||''};if(!o.a||!o.b)throw 0;if(o.mo&&b.pv>=0){o.pv=P[b.pv];o.tp=o.pv===o.a?o.b:o.a;o.ang=Math.atan2(o.tp.y-o.pv.y,o.tp.x-o.pv.x)}return o}),C=d.circs.map(c=>({c:P[c.c],r:+c.r})),K=d.blks.map(k=>({p:k.p.map(i=>P[i])}));if(C.some(c=>!c.c)||K.some(k=>k.p.some(p=>!p)))throw 0;P.forEach(p=>{if(!p.nm)p.nm=nxt(P)});pts=P;bars=B;circs=C;blks=K;angs=(d.angs||[]).filter(m=>B[m.a]).map(m=>({a:B[m.a],b:m.b>=0?B[m.b]:null}));sel=null;sels=[];props()}
+function ser(){const I=p=>pts.indexOf(p);return JSON.stringify({v:1,pts:pts.map(p=>({x:p.x,y:p.y,f:p.f,tr:!!p.tr,nm:p.nm||''})),bars:bars.map(b=>({a:I(b.a),b:I(b.b),L:b.L,h:b.h,mo:b.mo,w:b.w,nm:b.nm||'',pv:b.pv?I(b.pv):-1})),circs:circs.map(c=>({c:I(c.c),r:c.r})),blks:blks.map(k=>({p:k.p.map(I)})),angs:angs.map(m=>({a:bars.indexOf(m.a),b:m.b?bars.indexOf(m.b):-1,v:m.v?pts.indexOf(m.v):-1}))},null,1)}
+function des(s){const d=JSON.parse(s),P=d.pts.map(p=>({x:+p.x,y:+p.y,f:!!p.f,tr:!!p.tr,nm:p.nm||''})),B=d.bars.map(b=>{const o={a:P[b.a],b:P[b.b],L:+b.L,h:!!b.h,mo:!!b.mo,w:+b.w||0,nm:b.nm||''};if(!o.a||!o.b)throw 0;if(o.mo&&b.pv>=0){o.pv=P[b.pv];o.tp=o.pv===o.a?o.b:o.a;o.ang=Math.atan2(o.tp.y-o.pv.y,o.tp.x-o.pv.x)}return o}),C=d.circs.map(c=>({c:P[c.c],r:+c.r})),K=d.blks.map(k=>({p:k.p.map(i=>P[i])}));if(C.some(c=>!c.c)||K.some(k=>k.p.some(p=>!p)))throw 0;P.forEach(p=>{if(!p.nm)p.nm=nxt(P)});pts=P;bars=B;circs=C;blks=K;angs=(d.angs||[]).filter(m=>B[m.a]).map(m=>({a:B[m.a],b:m.b>=0?B[m.b]:null,v:m.v>=0?P[m.v]:undefined}));sel=null;sels=[];props()}
 async function save(name,data){if(!DL){try{const b=data instanceof Blob?data:new Blob([data],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);$('st').textContent='Saved '+name}catch(_){$('st').textContent='Could not save.'}return}try{await DL.save({filename:name,data});$('st').textContent='Saved '+name}catch(e){$('st').textContent=e&&e.code==='declined'?'Save cancelled.':'Could not save ('+(e&&e.code||'error')+').'}}
 rIcon();$('sv').onclick=()=>save('linkage.json',ser());
 $('opb').onclick=()=>$('op').click();
