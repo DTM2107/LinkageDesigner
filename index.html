@@ -36,7 +36,7 @@ button:disabled{opacity:.35;cursor:default}.tb{width:40px;height:40px;padding:0;
 <button data-t="rect" title="Rectangle"><svg viewBox="0 0 44 44"><rect x="7" y="12" width="30" height="20"/><rect class="h" x="3" y="8" width="8" height="8"/><rect class="h" x="33" y="28" width="8" height="8"/></svg></button>
 <button data-t="poly" title="Polygon"><svg viewBox="0 0 44 44"><path d="M22 5l15 8.5v17L22 39 7 30.5v-17z"/><rect class="h" x="18" y="18" width="8" height="8"/></svg></button>
 </div>
-<span class="sep"></span><button id="un" class="tb" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button><button id="re" class="tb" title="Redo (Ctrl+Y)"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button><span class="sep"></span><button id="pl" class="ib"></button><label><input type="checkbox" id="sn" checked> Snap 1</label>
+<span class="sep"></span><button id="un" class="tb" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button><button id="re" class="tb" title="Redo (Ctrl+Y)"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button><span class="sep"></span><button id="pl" class="ib"></button><label><input type="checkbox" id="sn" checked> Snap 1</label><label><input type="checkbox" id="sN" checked> Names</label><label><input type="checkbox" id="sL" checked> Lengths</label>
 <span class="sep"></span><button id="ex">Rock crusher example</button><button id="cl">Clear</button>
 <span class="sep"></span><button id="sv">Save file</button><button id="opb">Open file</button><input type="file" id="op" accept=".json,application/json" hidden>
 <span class="sep"></span><input type="number" id="rs" value="10" min="1" max="120" style="width:60px" title="Video length in seconds"> s <button id="rc" class="ib"></button>
@@ -49,8 +49,9 @@ button:disabled{opacity:.35;cursor:default}.tb{width:40px;height:40px;padding:0;
 const $=id=>document.getElementById(id),cv=$('cv'),cx=cv.getContext('2d');
 let pts=[],bars=[],circs=[],blks=[],sel=null,sels=[],tool='sel',Z=5,ox=300,oy=70,play=true,st=null,poly=[],ms={x:0,y:0},bg=null,last=0;
 const dd=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-const addP=(x,y,f)=>{const p={x,y,f:!!f};pts.push(p);return p};
-const addB=(a,b,h)=>{const o={a,b,L:dd(a,b),h:!!h,mo:false,w:40};bars.push(o);return o};
+const addP=(x,y,f)=>{const p={x,y,f:!!f,nm:nxt(pts)};pts.push(p);return p};
+function nxt(arr){const u=new Set(arr.map(p=>p.nm));for(const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')if(!u.has(c))return c;let i=1;while(u.has('P'+i))i++;return 'P'+i}
+const addB=(a,b,h)=>{const o={a,b,L:dd(a,b),h:!!h,mo:false,w:40,nm:''};bars.push(o);return o};
 const addK=ps=>{blks.push({p:ps});ps.forEach((a,i)=>ps.forEach((b,j)=>{if(j<=i||bars.some(o=>(o.a===a&&o.b===b)||(o.a===b&&o.b===a)))return;addB(a,b,!(j===i+1||(i===0&&j===ps.length-1)))}))};
 function gpts(){const S=new Set();sels.forEach(s=>{const o=s.o;if(s.t==='pt')S.add(o);else if(s.t==='bar'){S.add(o.a);S.add(o.b)}else if(s.t==='circ')S.add(o.c);else o.p.forEach(p=>S.add(p))});return[...S]}
 function boxSel(s){const x0=Math.min(s.x0,s.x1),x1=Math.max(s.x0,s.x1),y0=Math.min(s.y0,s.y1),y1=Math.max(s.y0,s.y1),I=p=>p.x>=x0&&p.x<=x1&&p.y>=y0&&p.y<=y1;
@@ -70,6 +71,7 @@ else{blks=blks.filter(k=>k!==o);bars=bars.filter(b=>!inK(o,b))}
 clean();sel=null;props()}
 function example(){pts=[];bars=[];circs=[];blks=[];sel=null;sels=[];const P=addP;
 const O=P(0,0,1),F=P(28,-62,1),A=P(-22,-29,1),B=P(10,0),D=P(3.5,-53.5),E=P(-21,-62.5),U=P(-32,-41.2),T=P(-31,-68);
+[[O,'O'],[F,'F'],[A,'A'],[B,'B'],[D,'D'],[E,'E'],[U,'U'],[T,'T']].forEach(([p,n])=>p.nm=n);
 const cr=addB(O,B);addB(B,D);addB(D,F);addB(D,E);addK([A,U,T,E]);
 cr.mo=true;cr.pv=O;cr.tp=B;cr.ang=0;cr.w=-40;T.tr=true;
 addK([P(-50,-25,1),P(-34,-25,1),P(-34,-80,1),P(-50,-80,1)]);
@@ -107,7 +109,7 @@ else if(s.k==='rect'){const x=gs(w.x),y=gs(w.y);if(Math.abs(x-s.x)<1||Math.abs(y
 snap();addK([addP(s.x,s.y),addP(x,s.y),addP(x,y),addP(s.x,y)]);sel={t:'blk',o:blks[blks.length-1]};props()}};
 cv.ondblclick=()=>{if(tool==='poly')endPoly()};
 cv.oncontextmenu=e=>e.preventDefault();
-function endPoly(){if(poly.length>=3){snap();poly.forEach(p=>{if(p.n){delete p.n;pts.push(p)}});addK(poly);sel={t:'blk',o:blks[blks.length-1]}}poly=[];setTool('sel');props()}
+function endPoly(){if(poly.length>=3){snap();poly.forEach(p=>{if(p.n){delete p.n;p.nm=nxt(pts);pts.push(p)}});addK(poly);sel={t:'blk',o:blks[blks.length-1]}}poly=[];setTool('sel');props()}
 cv.onwheel=e=>{e.preventDefault();const w=W(e),f=Math.pow(1.1,-Math.sign(e.deltaY));Z=Math.max(1,Math.min(40,Z*f));ox=e.offsetX-w.x*Z;oy=e.offsetY+w.y*Z};
 function setTool(t){tool=t;poly=[];document.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===t))}
 document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>setTool(b.dataset.t));
@@ -123,12 +125,12 @@ function props(){const P=$('pp'),s=sel,n=(l,id,v)=>`<label>${l}<input type="numb
 if(sels.length){const np=gpts();P.innerHTML=`<h3>${sels.length} selected</h3><p>${np.length} points. Drag any selected part to move them together, or press Delete.</p>${ck('Fix all points','mf',np.every(p=>p.f))}${del}`;return}
 if(!s){P.innerHTML='<h3>Properties</h3><p>Pick a tool, drag on the canvas to draw, then click a shape here to edit it.</p><p>Tips: start a line on an existing point to join them. Drag across empty space to select several parts, or hold Ctrl and click parts to add or remove them. Hold the right or middle mouse button and drag to pan. Scroll to zoom.</p>';return}
 const o=s.o;
-if(s.t==='pt')P.innerHTML=`<h3>Point</h3>${n('x','px',o.x)}${n('y','py',o.y)}${ck('Fixed','pf',o.f)}${ck('Trace path','ptr',o.tr)}<button onclick="clr()">Clear trace</button>${del}`;
-else if(s.t==='bar')P.innerHTML=`<h3>Line</h3>${n('Length','bl',o.L)}<p id="live"></p>${ck('Motor','bm',o.mo)}${n('Speed °/s','bw',o.w)}<p id="hint">Motor: fix one end point, then tick Motor.</p>${del}`;
+if(s.t==='pt')P.innerHTML=`<h3>Point</h3><label>Name<input type="text" id="pn" value="${o.nm||''}" style="width:90px"></label>${n('x','px',o.x)}${n('y','py',o.y)}${ck('Fixed','pf',o.f)}${ck('Trace path','ptr',o.tr)}<button onclick="clr()">Clear trace</button>${del}`;
+else if(s.t==='bar')P.innerHTML=`<h3>Line</h3><label>Name<input type="text" id="bn" value="${o.nm||''}" style="width:90px"></label>${n('Length','bl',o.L)}<p id="live"></p>${ck('Motor','bm',o.mo)}${n('Speed °/s','bw',o.w)}<p id="hint">Motor: fix one end point, then tick Motor.</p>${del}`;
 else if(s.t==='circ')P.innerHTML=`<h3>Circle</h3>${n('Radius','br',o.r)}<p>Centre is a point. Select it to move or fix it.</p>${del}`;
 else P.innerHTML=`<h3>Block</h3><p>${o.p.length} corners, rigid.</p>${ck('Fix all corners','kf',o.p.every(p=>p.f))}${del}`}
 $('pp').addEventListener('input',e=>{const t=e.target,o=sel&&sel.o;if(!pd0){snap();pd0=1}if(t.id==='mf'){gpts().forEach(p=>p.f=t.checked);return}if(!o)return;const v=t.type==='checkbox'?t.checked:parseFloat(t.value);
-if(t.id==='px'&&!isNaN(v))o.x=v;if(t.id==='py'&&!isNaN(v))o.y=v;if(t.id==='pf')o.f=v;if(t.id==='ptr'){o.tr=v;o.trail=[]}
+if(t.id==='px'&&!isNaN(v))o.x=v;if(t.id==='py'&&!isNaN(v))o.y=v;if(t.id==='pf')o.f=v;if(t.id==='ptr'){o.tr=v;o.trail=[]}if(t.id==='pn'||t.id==='bn')o.nm=t.value;
 if(t.id==='bl'&&v>0)o.L=v;if(t.id==='br'&&v>0)o.r=v;if(t.id==='bw')o.w=v||0;if(t.id==='kf')o.p.forEach(p=>p.f=v);
 if(t.id==='bm'){if(v){const pv=o.a.f?o.a:o.b.f?o.b:null;if(!pv){t.checked=false;$('hint').textContent='Fix one end of the line first (select that end point and tick Fixed).';$('hint').className='bad';return}
 o.pv=pv;o.tp=pv===o.a?o.b:o.a;o.ang=Math.atan2(o.tp.y-pv.y,o.tp.x-pv.x)}o.mo=v}});
@@ -153,6 +155,12 @@ pts.forEach(p=>{if(p.tr&&p.trail&&p.trail.length>1){cx.strokeStyle=c('--acc');cx
 cx.lineCap='round';bars.forEach(b=>{if(b.h)return;cx.strokeStyle=hs(b)?c('--acc'):b.mo?c('--bad'):c('--bar');cx.lineWidth=hs(b)?5:4;cx.beginPath();cx.moveTo(X(b.a.x),Y(b.a.y));cx.lineTo(X(b.b.x),Y(b.b.y));cx.stroke()});
 pts.forEach(p=>{cx.beginPath();if(p.f){cx.moveTo(X(p.x),Y(p.y));cx.lineTo(X(p.x)-7,Y(p.y)+13);cx.lineTo(X(p.x)+7,Y(p.y)+13);cx.closePath();cx.fillStyle=c('--mut');cx.fill()}
 cx.beginPath();cx.arc(X(p.x),Y(p.y),hs(p)?6:4,0,7);cx.fillStyle=c('--card');cx.fill();cx.strokeStyle=hs(p)?c('--acc'):c('--fg');cx.lineWidth=2;cx.stroke()});
+const sN=$('sN').checked,sL=$('sL').checked;
+if(sN||sL){cx.font='13px system-ui,sans-serif';cx.lineJoin='round';cx.lineWidth=3;cx.textAlign='left';
+if(sN)pts.forEach(p=>{if(p.nm){cx.strokeStyle=c('--card');cx.strokeText(p.nm,X(p.x)+8,Y(p.y)-8);cx.fillStyle=c('--fg');cx.fillText(p.nm,X(p.x)+8,Y(p.y)-8)}});
+bars.forEach(b=>{if(b.h)return;const t=(sN&&b.nm?b.nm+' ':'')+(sL?dd(b.a,b.b).toFixed(1):'');if(!t)return;
+const x1=X(b.a.x),y1=Y(b.a.y),x2=X(b.b.x),y2=Y(b.b.y),vx=x2-x1,vy=y2-y1,l=Math.hypot(vx,vy)||1;let nx=-vy/l,ny=vx/l;if(ny>0){nx=-nx;ny=-ny}
+const tx=(x1+x2)/2+nx*12,ty=(y1+y2)/2+ny*12+4;cx.textAlign='center';cx.strokeStyle=c('--card');cx.strokeText(t,tx,ty);cx.fillStyle=c('--mut');cx.fillText(t,tx,ty)});cx.textAlign='left'}
 cx.strokeStyle=c('--acc');cx.setLineDash([4,4]);cx.lineWidth=1.5;
 if(st&&(st.k==='line'||st.k==='rect'||st.k==='circ')){const m=ms,x=gs(m.x),y=gs(m.y);cx.beginPath();
 if(st.k==='line'){cx.moveTo(X(st.x),Y(st.y));cx.lineTo(X(x),Y(y))}
@@ -169,8 +177,8 @@ function undo(){if(!UH.length)return;RH.push(ser());des(UH.pop());ub()}
 function redo(){if(!RH.length)return;UH.push(ser());des(RH.pop());ub()}
 $('un').onclick=undo;$('re').onclick=redo;$('pp').addEventListener('change',()=>{pd0=0});ub();
 if(window.claude&&claude.use)claude.use('downloads').then(d=>DL=d).catch(()=>{});
-function ser(){const I=p=>pts.indexOf(p);return JSON.stringify({v:1,pts:pts.map(p=>({x:p.x,y:p.y,f:p.f,tr:!!p.tr})),bars:bars.map(b=>({a:I(b.a),b:I(b.b),L:b.L,h:b.h,mo:b.mo,w:b.w,pv:b.pv?I(b.pv):-1})),circs:circs.map(c=>({c:I(c.c),r:c.r})),blks:blks.map(k=>({p:k.p.map(I)}))},null,1)}
-function des(s){const d=JSON.parse(s),P=d.pts.map(p=>({x:+p.x,y:+p.y,f:!!p.f,tr:!!p.tr})),B=d.bars.map(b=>{const o={a:P[b.a],b:P[b.b],L:+b.L,h:!!b.h,mo:!!b.mo,w:+b.w||0};if(!o.a||!o.b)throw 0;if(o.mo&&b.pv>=0){o.pv=P[b.pv];o.tp=o.pv===o.a?o.b:o.a;o.ang=Math.atan2(o.tp.y-o.pv.y,o.tp.x-o.pv.x)}return o}),C=d.circs.map(c=>({c:P[c.c],r:+c.r})),K=d.blks.map(k=>({p:k.p.map(i=>P[i])}));if(C.some(c=>!c.c)||K.some(k=>k.p.some(p=>!p)))throw 0;pts=P;bars=B;circs=C;blks=K;sel=null;sels=[];props()}
+function ser(){const I=p=>pts.indexOf(p);return JSON.stringify({v:1,pts:pts.map(p=>({x:p.x,y:p.y,f:p.f,tr:!!p.tr,nm:p.nm||''})),bars:bars.map(b=>({a:I(b.a),b:I(b.b),L:b.L,h:b.h,mo:b.mo,w:b.w,nm:b.nm||'',pv:b.pv?I(b.pv):-1})),circs:circs.map(c=>({c:I(c.c),r:c.r})),blks:blks.map(k=>({p:k.p.map(I)}))},null,1)}
+function des(s){const d=JSON.parse(s),P=d.pts.map(p=>({x:+p.x,y:+p.y,f:!!p.f,tr:!!p.tr,nm:p.nm||''})),B=d.bars.map(b=>{const o={a:P[b.a],b:P[b.b],L:+b.L,h:!!b.h,mo:!!b.mo,w:+b.w||0,nm:b.nm||''};if(!o.a||!o.b)throw 0;if(o.mo&&b.pv>=0){o.pv=P[b.pv];o.tp=o.pv===o.a?o.b:o.a;o.ang=Math.atan2(o.tp.y-o.pv.y,o.tp.x-o.pv.x)}return o}),C=d.circs.map(c=>({c:P[c.c],r:+c.r})),K=d.blks.map(k=>({p:k.p.map(i=>P[i])}));if(C.some(c=>!c.c)||K.some(k=>k.p.some(p=>!p)))throw 0;P.forEach(p=>{if(!p.nm)p.nm=nxt(P)});pts=P;bars=B;circs=C;blks=K;sel=null;sels=[];props()}
 async function save(name,data){if(!DL){try{const b=data instanceof Blob?data:new Blob([data],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);$('st').textContent='Saved '+name}catch(_){$('st').textContent='Could not save.'}return}try{await DL.save({filename:name,data});$('st').textContent='Saved '+name}catch(e){$('st').textContent=e&&e.code==='declined'?'Save cancelled.':'Could not save ('+(e&&e.code||'error')+').'}}
 rIcon();$('sv').onclick=()=>save('linkage.json',ser());
 $('opb').onclick=()=>$('op').click();
